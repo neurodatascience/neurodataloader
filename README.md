@@ -1,0 +1,2 @@
+# neurodataloader
+neurodataloader is a combination of [Pytorch](https://github.com/pytorch/pytorch) datasets and [Pybids](https://github.com/bids-standard/pybids) intended to facillitate loading BIDS-compliant datasets. Instead of loading individual images, the Dataloader supplies sets of images grouped by the user's requirements (e.g. return images grouped by subject, by session, and/or imaging modality).
