@@ -2,10 +2,15 @@ import nibabel as nb
 from bids import BIDSLayout
 import torch as T
 import torch.utils.data.dataset
+import pandas as pd
+from string import Formatter
+import os
 
 class TorchBIDS(torch.utils.data.dataset.Dataset):
     # TODO: Need to decide on strategy for dealing/fetching with data from the tabular data
-    def __init__(self, root_dir: str,  tabular_data: str=None, augmentation_list: list=None, bids_kwargs: dict=None,
+    def __init__(self, root_dir: str,
+                 tabular_data_file: str=None, tabular_data_columns: list=None,
+                 augmentation_list: list=None, bids_kwargs: dict=None,
                  get_kwargs: dict=None, match_entities: list=None, force_num_im: int=0):
         '''
         Pytorch Dataset for handling dataset in BIDS.
@@ -14,10 +19,15 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
         root_dir : str
             String indicating the root of the BIDS directory. Takes precedence over 'root' specified in
             'bids_kwargs'
-        tabular_data : str
-            Currently unused. To be implemented in next release.
-        transform_list : list
-            Currently unused; to be implemented in next release. List of functions to apply to data before being returned
+        tabular_data_file : str
+            Formatting string with the name of the subject-specific tabular files. The file should be in the subject
+            directory: root_dir/sub-123/tabular_data.tsv. Format entries can be any BIDS entry.
+            E.g.: tabular_data_file='sub-{subject}_ses-{session}_tabular_penguin.tsv'
+        tabular_data_columns : list
+            List of columns to load from tabular data file.
+        augmentation_list : list
+            Currently unused; to be implemented in next release. List of functions to apply to data before being
+             returned
         bids_kwargs : dict
             Optional. Keyword arguments to be passed to the bids.BIDSLayout object initialization.
         get_kwargs : dict
@@ -33,6 +43,7 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
             useful in cases where there is missing data (e.g., "return only images which have both AP and PA
             acquisitions")
         '''
+
         if(bids_kwargs is None):
             bids_kwargs = {}
         if(get_kwargs is None):
@@ -40,6 +51,8 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
         bids_kwargs['root'] = root_dir
         # Glorified Pybids wrapper
         self.bidsdata = BIDSLayout(**bids_kwargs)
+        self.tabular_data_file = tabular_data_file
+        self.tabular_data_columns = tabular_data_columns
         self.get_kwargs = get_kwargs
         self.augmentation_list = augmentation_list
         if('extension' not in self.get_kwargs.keys()):
@@ -52,7 +65,6 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
             # Iterate through valid file list; get list of matches
             acc_ind_list = []
             for ind, f in enumerate(file_list):
-
                 if(ind in acc_ind_list):
                     continue
                 else:
@@ -78,6 +90,12 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
                 if(force_num_im > 0 and len(flist) != force_num_im):  # if force_num_im is specified, check for match
                     continue
                 self.image_set.append(flist)
+
+        # Tabular
+        if(self.tabular_data_file is not None):
+            self.tabular_keys = [ent[1] for ent in Formatter().parse(self.tabular_data_file) if ent[1] is not None]
+        else:
+            self.tabular_keys = None
         return
 
     def __len__(self):
@@ -92,17 +110,33 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
             Index of item to load.
         Returns
         -------
-        tuple
-            tuple[0] is a list of tensors matching the images in self.image_set[idx]
-            tuple[1] is a list containing the meta data of each image. tuple[0][2] would return the image data;
-            tuple[1][2] would return the metadata for that same image.
+        ret_im : list
+            List of image tensors.
+        ret_meta : list
+            List of meta data associated with the images in ret_im
+        ret_tabular : list
+            List of Pandas dataframes, each containing single-subject tabular data.
         '''
-        # Returns ([image], metadata_json)
-        # Returned images
         # Load images; convert to Pytorch
         ret_im = []
         ret_meta = []
+        ret_tabular = []
         for im in self.image_set[idx]:
+            # Get image & image metadata
             ret_im.append(T.Tensor(nb.load(im).get_fdata()))
             ret_meta.append(im.get_metadata())
-        return ret_im, ret_meta
+
+            # Load tabular data
+            if (self.tabular_keys is None):
+                continue
+            tabdict = {}
+            iment = im.get_entities()
+            for k in self.tabular_keys:
+                tabdict[k] = iment[k]
+            # Form expected filename
+            tabfname = self.tabular_data_file.format(**tabdict)
+            tabind = im.dirname.rfind('sub-{subject}'.format(subject=iment['subject']))
+            tabdir = im.dirname[:tabind] + 'sub-{subject}'.format(subject=iment['subject']) + os.sep
+            tabfile = tabdir + tabfname
+            ret_tabular.append(pd.read_csv(tabfile, sep='\t', usecols=self.tabular_data_columns))
+        return ret_im, ret_meta, ret_tabular
