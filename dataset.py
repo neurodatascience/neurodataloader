@@ -60,7 +60,7 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
         file_list = self.bidsdata.get(**self.get_kwargs)
         self.image_set = []
         if(match_entities is None):
-            self.image_set = file_list
+            self.image_set = [[f] for f in file_list]
         else:
             # Iterate through valid file list; get list of matches
             acc_ind_list = []
@@ -128,6 +128,7 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
 
             # Load tabular data
             if (self.tabular_keys is None):
+                ret_tabular.append([])
                 continue
             tabdict = {}
             iment = im.get_entities()
@@ -138,5 +139,6 @@ class TorchBIDS(torch.utils.data.dataset.Dataset):
             tabind = im.dirname.rfind('sub-{subject}'.format(subject=iment['subject']))
             tabdir = im.dirname[:tabind] + 'sub-{subject}'.format(subject=iment['subject']) + os.sep
             tabfile = tabdir + tabfname
-            ret_tabular.append(pd.read_csv(tabfile, sep='\t', usecols=self.tabular_data_columns))
+            tabdata = list(pd.read_csv(tabfile, sep='\t', usecols=self.tabular_data_columns).loc[0])
+            ret_tabular.append(tabdata)
         return ret_im, ret_meta, ret_tabular
