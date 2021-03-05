@@ -19,7 +19,8 @@ def csv_split(table_file: str, output_template: str, column_key_translate : defa
         For column names with invalid format specifiers (e.g. '.'), use 'column_key_translate' to define a mapping.
         E.g. 'example/other/{COLUMN}_table.tsv'.
     column_key_translate : defaultdict
-        Optional. Translation between the field in the format string and the column name.
+        Optional. Translation between the field in the format string and the column name. This is mostly useful in the
+        case where a field (column name) has characters that are disallowed in Python's format strings (e.g.: .)
         E.g. if your CSV has a field '3-0.0' and you want to use its value in the name, you can define a mapping:
         output_template = sub-{eid}_300-{3-0}
         column_key_translate = {'3-0','3-0.0'}

@@ -24,7 +24,7 @@ class QuickBIDS(Dataset):
             Optional. If defined, will only select files which match the specified entities.
             Example: entities_to_match = {'sub':'1234'} will return only files with subject 1234.
         tabular_to_fetch : list
-            List of str corresponding to column entries to fetch.
+            Optional. List of str corresponding to column entries to fetch.
         get_metadata : bool
             Whether to fetch metadata from .json file associated with the image file.
         verbose : bool
@@ -108,7 +108,10 @@ class QuickBIDS(Dataset):
 
         Returns
         -------
-
+        torch.Tensor
+            Imaging data placed on device specified at initialization
+        dict
+            Dictionary containing tabular
         '''
         file = self.file_list[idx]
         file_path = self.file_path_dict[file]
