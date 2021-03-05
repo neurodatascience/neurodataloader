@@ -115,11 +115,15 @@ class QuickBIDS(Dataset):
         '''
         file = self.file_list[idx]
         file_path = self.file_path_dict[file]
-        tabular_path = self.tabular_path_dict[file]
+
         dat = T.Tensor(nb.load(file_path).get_fdata()).to(self.device)
-        # get tabular data
-        tab_dat = pd.read_csv(tabular_path, usecols=self.tabular_to_fetch).to_dict(orient='records')
-        return dat, tab_dat
+        # get tabular data, as applicable
+        if(self.tabular_to_fetch is None):
+            return dat
+        else:
+            tabular_path = self.tabular_path_dict[file]
+            tab_dat = pd.read_csv(tabular_path, usecols=self.tabular_to_fetch).to_dict(orient='records')
+            return dat, tab_dat
 
 
     @staticmethod
