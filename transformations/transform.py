@@ -1,8 +1,8 @@
 import torch as T
 import numpy as np
-from pyt_transformations import interpolation as interp
-from pyt_transformations import matrices
-from matplotlib import pyplot as plt
+from . import interpolation as interp
+from . import matrices
+
 import nibabel as nb
 
 def affine(dat: T.Tensor, mat_affine: T.Tensor, device: str=None, interpolation: str='nearest',border_mode: str='zero'):

@@ -10,6 +10,7 @@ class QuickBIDS(Dataset):
                  file_of_files: str = None,
                  entities_to_match: dict = None,
                  tabular_to_fetch: list = None,
+                 preprocess_list: list = None,
                  verbose: bool = True,
                  device: str = 'cuda:0'):
         '''
@@ -25,8 +26,9 @@ class QuickBIDS(Dataset):
             Example: entities_to_match = {'sub':'1234'} will return only files with subject 1234.
         tabular_to_fetch : list
             Optional. List of str corresponding to column entries to fetch.
-        get_metadata : bool
-            Whether to fetch metadata from .json file associated with the image file.
+        preprocess_list : list
+            Optional. List of preprocessing functions to apply to the loaded image before returning. Listed functions
+            are applied in the order in which they appear in the list.
         verbose : bool
             Whether to print dataset info.
         device : str
@@ -40,6 +42,11 @@ class QuickBIDS(Dataset):
 
         self.device = device
         self.tabular_to_fetch = tabular_to_fetch
+        if(preprocess_list is not None):
+            for p in preprocess_list:
+                if(not callable(p)):
+                    raise ValueError(f'Preprocessing function {p} is not callable')
+        self.preprocess_list = preprocess_list
 
         if root_dir is None and file_of_files is None:
             raise ValueError('Either root_dir or file_of_files must be defined.')
@@ -116,7 +123,15 @@ class QuickBIDS(Dataset):
         file = self.file_list[idx]
         file_path = self.file_path_dict[file]
 
-        dat = T.Tensor(nb.load(file_path).get_fdata()).to(self.device)
+        dat = T.Tensor(nb.load(file_path).get_fdata())
+        if(self.preprocess_list is not None):
+            for p in self.preprocess_list:
+                dat = p(dat)
+        dat = dat.to(self.device)
+
+        ############
+        ### If you need a different return, (e.g., different return), modify this next section
+        ############
         # get tabular data, as applicable
         if(self.tabular_to_fetch is None):
             return dat
@@ -124,7 +139,6 @@ class QuickBIDS(Dataset):
             tabular_path = self.tabular_path_dict[file]
             tab_dat = pd.read_csv(tabular_path, usecols=self.tabular_to_fetch).to_dict(orient='records')
             return dat, tab_dat
-
 
     @staticmethod
     def _entity_splitter(filename: str,
@@ -143,7 +157,7 @@ class QuickBIDS(Dataset):
         Returns
         -------
         dict
-            Dictionary with the found entities, and 'suffix' for the last entitiy (if unkeyed)
+            Dictionary with the found entities, and 'suffix' for the last entity (if unkeyed)
         '''
         spl = filename.split(entity_delim)
         entity_dict = dd(str)
