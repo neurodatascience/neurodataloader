@@ -77,7 +77,6 @@ class QuickBIDS(Dataset):
                             sub_name = ent_dict['sub']
                             sub_dir = dirpath.split('sub-' + sub_name)[0]
                             sub_dir = os.path.join(sub_dir, f'sub-{sub_name}')
-                            print(sub_dir)
                             for s in os.listdir(sub_dir):
                                 if(s.endswith('.csv')):
                                     self.tabular_path_dict[f] = os.path.join(sub_dir, s)
